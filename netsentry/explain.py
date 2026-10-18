@@ -20,6 +20,10 @@ EXPLANATIONS = {
                   'Automated software that checks in with an outside server often behaves this way.',
                   'Update checks, monitoring agents and chat or sync apps are also regular.',
                   'Identify the process behind the traffic and check the destination against what the host should be talking to.'),
+    'repeated_denies': ('One source was blocked from the same destination and port many times and kept retrying.',
+                        'Software that retries a blocked connection can be malware trying to reach a command server or a blocked exfiltration path.',
+                        'A misconfigured application, a stale DNS entry or a health check pointed at a closed port causes the same pattern.',
+                        'Identify the process behind the retries on the source host. If it is expected, fix the rule or the app configuration; if not, investigate the host.'),
 }
 
 
