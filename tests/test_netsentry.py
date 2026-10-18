@@ -47,6 +47,26 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(len(detectors.cleartext_services([flow(0, port=23)])), 1)
         self.assertEqual(detectors.cleartext_services([flow(0, port=23, action='deny')]), [])
 
+    def test_repeated_denies_flag_persistent_retries(self):
+        rows = [flow(i * 30, action='deny', port=443) for i in range(12)]
+        found = detectors.repeated_denies(rows)
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].kind, 'repeated_denies')
+        self.assertEqual(found[0].severity, 'medium')
+        self.assertEqual(found[0].evidence['denies_in_window'], 12)
+        text = report.to_markdown(rows, 0, found)
+        self.assertIn('Suggested next step', text)
+
+    def test_repeated_denies_needs_volume_on_one_target_in_one_window(self):
+        sparse = [flow(i * 120, action='deny', port=443) for i in range(12)]
+        few = [flow(i * 30, action='deny', port=443) for i in range(9)]
+        split_ports = [flow(i * 30, action='deny', port=443 + (i % 2)) for i in range(12)]
+        allowed = [flow(i * 30, action='allow', port=443) for i in range(12)]
+        self.assertEqual(detectors.repeated_denies(sparse), [])
+        self.assertEqual(detectors.repeated_denies(few), [])
+        self.assertEqual(detectors.repeated_denies(split_ports), [])
+        self.assertEqual(detectors.repeated_denies(allowed), [])
+
     def test_large_transfer_needs_an_outlier_and_enough_sources(self):
         rows = [flow(i, src=f'192.0.2.{i + 1}', size=1000) for i in range(10)] + [flow(50, src='192.0.2.99', size=500_000_000)]
         self.assertEqual([f.source for f in detectors.large_transfers(rows)], ['192.0.2.99'])
