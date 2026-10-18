@@ -109,7 +109,29 @@ def beaconing(flows, min_events=8, max_jitter=0.1):
     return findings
 
 
+
+def repeated_denies(flows, min_denies=10, window_seconds=600):
+    """One source repeatedly blocked from the same destination:port and still retrying."""
+    findings, groups = [], defaultdict(list)
+    for flow in flows:
+        if flow.action == 'deny':
+            groups[(flow.src, flow.dst, flow.port)].append(flow)
+    for (src, dst, port), items in groups.items():
+        start, best, best_end = 0, 0, 0
+        for end, flow in enumerate(items):
+            while (flow.time - items[start].time).total_seconds() > window_seconds:
+                start += 1
+            if end - start + 1 > best:
+                best, best_end = end - start + 1, end
+        if best >= min_denies:
+            findings.append(Finding('repeated_denies', 'medium', src,
+                                    f'{src} was denied {best} times reaching {dst}:{port} within {window_seconds}s and kept retrying',
+                                    {'target': dst, 'port': port, 'denies_in_window': best,
+                                     'first_denied': items[best_end - best + 1].time.isoformat()}))
+    return findings
+
 def run_all(flows):
     order = {'high': 0, 'medium': 1, 'low': 2}
-    findings = port_scans(flows) + auth_bursts(flows) + large_transfers(flows) + beaconing(flows) + cleartext_services(flows)
+    findings = (port_scans(flows) + auth_bursts(flows) + large_transfers(flows) + beaconing(flows)
+              + cleartext_services(flows) + repeated_denies(flows))
     return sorted(findings, key=lambda f: (order[f.severity], f.kind, f.source))
