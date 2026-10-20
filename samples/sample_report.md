@@ -2,9 +2,9 @@
 
 > Heuristic findings from the supplied data only. They are leads to verify, not proof of an attack or of who is responsible. Use only data you are authorized to analyze.
 
-- Flows analyzed: **365** (rows skipped as invalid: 0)
-- Time range (UTC): 2026-10-01T09:00:05+00:00 to 2026-10-01T10:00:00+00:00
-- Findings: 2 high, 3 medium
+- Flows analyzed: **377** (rows skipped as invalid: 0)
+- Time range (UTC): 2026-10-01T09:00:05+00:00 to 2026-10-01T10:12:10+00:00
+- Findings: 2 high, 4 medium
 
 ## 1. [HIGH] 203.0.113.77 had 12 failed logins in 300s and then a successful login
 
@@ -45,3 +45,11 @@
 - **Could be harmless if:** Backups, software updates and media uploads are common benign causes.
 - **Suggested next step:** Confirm the owner and purpose of the host, and compare with its normal backup or upload schedule.
 - **Evidence:** bytes_out=900171151, average_bytes=28319766
+
+## 6. [MEDIUM] 192.0.2.60 was denied 12 times reaching 198.51.100.77:4444 within 600s and kept retrying
+
+- **What this is:** One source was blocked from the same destination and port many times and kept retrying.
+- **Why it matters:** Software that retries a blocked connection can be malware trying to reach a command server or a blocked exfiltration path.
+- **Could be harmless if:** A misconfigured application, a stale DNS entry or a health check pointed at a closed port causes the same pattern.
+- **Suggested next step:** Identify the process behind the retries on the source host. If it is expected, fix the rule or the app configuration; if not, investigate the host.
+- **Evidence:** target=198.51.100.77, port=4444, denies_in_window=12, first_denied=2026-10-01T10:06:40+00:00
