@@ -24,6 +24,8 @@ for i in range(10):  # beaconing every 60 seconds
     add(3000 + i * 60, '192.0.2.31', '198.51.100.99', 8443, 'tcp', 400, 'allow')
 add(3500, '192.0.2.12', '192.0.2.8', 21, 'tcp', 2000, 'allow')  # cleartext FTP
 add(3600, '192.0.2.14', '198.51.100.45', 443, 'tcp', 900_000_000, 'allow')  # large upload
+for i in range(12):  # blocked retries: one host keeps hitting a denied port
+    add(4000 + i * 30, '192.0.2.60', '198.51.100.77', 4444, 'tcp', 60, 'deny')
 writer = csv.writer(sys.stdout, lineterminator='\n')
 writer.writerow(['timestamp', 'src_ip', 'dst_ip', 'dst_port', 'protocol', 'bytes_out', 'action'])
 writer.writerows(sorted(rows))
