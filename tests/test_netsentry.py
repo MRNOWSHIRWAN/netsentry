@@ -119,7 +119,7 @@ class EndToEndTests(unittest.TestCase):
     def test_sample_data_produces_each_expected_finding(self):
         flows, skipped = parser.load_flows(SAMPLE)
         kinds = sorted(f.kind for f in detectors.run_all(flows))
-        self.assertEqual(kinds, ['auth_burst', 'beaconing', 'cleartext_service', 'large_transfer', 'port_scan'])
+        self.assertEqual(kinds, ['auth_burst', 'beaconing', 'cleartext_service', 'large_transfer', 'port_scan', 'repeated_denies'])
         self.assertEqual(skipped, 0)
 
     def test_markdown_and_json_reports_explain_findings(self):
