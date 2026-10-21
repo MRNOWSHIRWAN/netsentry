@@ -44,16 +44,20 @@ def load_flows(path):
     if path.stat().st_size > MAX_BYTES:
         raise ValueError(f'input exceeds {MAX_BYTES // 1_000_000} MB; split it first')
     flows, skipped = [], 0
-    with path.open(newline='', encoding='utf-8') as stream:
+    with path.open(newline='', encoding='utf-8-sig') as stream:
         reader = csv.DictReader(stream)
-        missing = [name for name in REQUIRED if name not in (reader.fieldnames or [])]
+        # Real exports add a BOM or vary header case/spacing; map cleaned names to the original ones.
+        names = {}
+        for name in reader.fieldnames or []:
+            names.setdefault(name.strip().lower(), name)
+        missing = [name for name in REQUIRED if name not in names]
         if missing:
             raise ValueError('missing columns: ' + ', '.join(missing))
         for index, row in enumerate(reader):
             if index >= MAX_ROWS:
                 raise ValueError(f'input exceeds {MAX_ROWS} rows; split it first')
             try:
-                flows.append(parse_row(row))
+                flows.append(parse_row({key: row[names[key]] for key in REQUIRED}))
             except (ValueError, KeyError, AttributeError, TypeError):
                 skipped += 1
     flows.sort(key=lambda flow: flow.time)
