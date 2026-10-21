@@ -105,6 +105,15 @@ class ParserTests(unittest.TestCase):
             finally:
                 parser.MAX_ROWS = original
 
+    def test_common_export_variants_are_accepted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'excel-export.csv'
+            path.write_bytes(('\ufeffTimestamp, SRC_IP ,Dst_Ip,dst_port,Protocol,bytes_out,ACTION\n'
+                              '2026-10-01T09:00:00Z,192.0.2.1,192.0.2.2,443,TCP,10,ALLOW\n').encode('utf-8'))
+            flows, skipped = parser.load_flows(path)
+            self.assertEqual((len(flows), skipped), (1, 0))
+            self.assertEqual((flows[0].src, flows[0].protocol, flows[0].action), ('192.0.2.1', 'tcp', 'allow'))
+
     def test_naive_timestamps_are_treated_as_utc_and_sorted(self):
         with tempfile.TemporaryDirectory() as folder:
             path = self.write(folder, [self.HEADER,
