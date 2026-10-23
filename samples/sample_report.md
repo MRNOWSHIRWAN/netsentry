@@ -14,13 +14,13 @@
 - **Suggested next step:** Review the account that succeeded, force a password reset if unexplained, and enable lockout or MFA on that service.
 - **Evidence:** failures_in_window=12, success_followed=True, targets=['192.0.2.5']
 
-## 2. [HIGH] 203.0.113.50 probed 40 distinct ports on 192.0.2.5 within 60s
+## 2. [HIGH] 203.0.113.50 probed 40 distinct tcp ports on 192.0.2.5 within 60s
 
 - **What this is:** Many different ports on one host were tried in a short time, which is how scanners map what a host exposes.
 - **Why it matters:** Scanning is often the first step before targeting a weak service.
 - **Could be harmless if:** Authorized vulnerability scanners, monitoring tools and misconfigured clients look the same.
 - **Suggested next step:** Check whether the source is an approved scanner. If not, block or rate-limit it and confirm which of the probed ports are actually exposed.
-- **Evidence:** target=192.0.2.5, distinct_ports=40, first_seen=2026-10-01T09:20:01+00:00
+- **Evidence:** target=192.0.2.5, protocol=tcp, distinct_ports=40, first_seen=2026-10-01T09:20:01+00:00
 
 ## 3. [MEDIUM] 192.0.2.31 contacted 198.51.100.99:8443 10 times at a steady ~60s interval
 
