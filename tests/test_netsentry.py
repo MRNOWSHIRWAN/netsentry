@@ -14,8 +14,8 @@ T0 = datetime(2026, 10, 1, 9, 0, tzinfo=timezone.utc)
 SAMPLE = Path(__file__).resolve().parent.parent / 'samples' / 'sample_flows.csv'
 
 
-def flow(sec, src='192.0.2.1', dst='192.0.2.9', port=443, size=100, action='allow'):
-    return Flow(T0 + timedelta(seconds=sec), src, dst, port, 'tcp', size, action)
+def flow(sec, src='192.0.2.1', dst='192.0.2.9', port=443, size=100, action='allow', proto='tcp'):
+    return Flow(T0 + timedelta(seconds=sec), src, dst, port, proto, size, action)
 
 
 class DetectorTests(unittest.TestCase):
@@ -23,6 +23,13 @@ class DetectorTests(unittest.TestCase):
         found = detectors.port_scans([flow(i, port=i + 1) for i in range(40)])
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0].evidence['distinct_ports'], 40)
+
+    def test_port_scan_counts_tcp_and_udp_separately(self):
+        mixed = [flow(i, port=i + 1) for i in range(8)] + [flow(i, port=i + 1, proto='udp') for i in range(8)]
+        self.assertEqual(detectors.port_scans(mixed), [])
+        found = detectors.port_scans(mixed + [flow(i + 8, port=i + 9) for i in range(8)])
+        self.assertEqual(len(found), 1)
+        self.assertEqual((found[0].evidence['protocol'], found[0].evidence['distinct_ports']), ('tcp', 16))
 
     def test_slow_port_touches_are_not_a_scan(self):
         self.assertEqual(detectors.port_scans([flow(i * 30, port=i + 1) for i in range(40)]), [])

@@ -17,11 +17,14 @@ class Finding:
 
 
 def port_scans(flows, min_ports=15, window_seconds=60):
-    """One source touching many distinct ports on a host within a short window."""
+    """One source touching many distinct ports on a host within a short window.
+
+    Port numbers are protocol-specific (53/tcp and 53/udp are different services),
+    so TCP and UDP touches are counted separately."""
     findings, by_pair = [], defaultdict(list)
     for flow in flows:
-        by_pair[(flow.src, flow.dst)].append(flow)
-    for (src, dst), items in by_pair.items():
+        by_pair[(flow.src, flow.dst, flow.protocol)].append(flow)
+    for (src, dst, proto), items in by_pair.items():
         start, best, best_start = 0, 0, 0
         for end, flow in enumerate(items):
             while (flow.time - items[start].time).total_seconds() > window_seconds:
@@ -31,8 +34,9 @@ def port_scans(flows, min_ports=15, window_seconds=60):
                 best, best_start = count, start
         if best >= min_ports:
             findings.append(Finding('port_scan', 'high', src,
-                                    f'{src} probed {best} distinct ports on {dst} within {window_seconds}s',
-                                    {'target': dst, 'distinct_ports': best, 'first_seen': items[best_start].time.isoformat()}))
+                                    f'{src} probed {best} distinct {proto} ports on {dst} within {window_seconds}s',
+                                    {'target': dst, 'protocol': proto, 'distinct_ports': best,
+                                     'first_seen': items[best_start].time.isoformat()}))
     return findings
 
 
