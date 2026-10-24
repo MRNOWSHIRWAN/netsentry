@@ -96,20 +96,24 @@ def large_transfers(flows, z_cutoff=3.0, min_bytes=10_000_000):
 
 
 def beaconing(flows, min_events=8, max_jitter=0.1):
-    """Very regular connection timing from one source to one destination:port (possible automated check-in)."""
+    """Very regular connection timing from one source to one destination:port (possible automated check-in).
+
+    TCP and UDP are grouped separately: interleaving the two would fake a
+    steady rhythm (each at half the apparent interval) that neither has."""
     findings, groups = [], defaultdict(list)
     for flow in flows:
         if flow.action == 'allow':
-            groups[(flow.src, flow.dst, flow.port)].append(flow.time.timestamp())
-    for (src, dst, port), times in groups.items():
+            groups[(flow.src, flow.dst, flow.port, flow.protocol)].append(flow.time.timestamp())
+    for (src, dst, port, proto), times in groups.items():
         if len(times) < min_events:
             continue
         gaps = [b - a for a, b in zip(times, times[1:])]
         gap_avg = mean(gaps)
         if gap_avg >= 5 and pstdev(gaps) / gap_avg <= max_jitter:
             findings.append(Finding('beaconing', 'medium', src,
-                                    f'{src} contacted {dst}:{port} {len(times)} times at a steady ~{gap_avg:.0f}s interval',
-                                    {'target': dst, 'port': port, 'events': len(times), 'interval_seconds': round(gap_avg, 1)}))
+                                    f'{src} contacted {dst}:{port}/{proto} {len(times)} times at a steady ~{gap_avg:.0f}s interval',
+                                    {'target': dst, 'port': port, 'protocol': proto,
+                                     'events': len(times), 'interval_seconds': round(gap_avg, 1)}))
     return findings
 
 
@@ -119,8 +123,8 @@ def repeated_denies(flows, min_denies=10, window_seconds=600):
     findings, groups = [], defaultdict(list)
     for flow in flows:
         if flow.action == 'deny':
-            groups[(flow.src, flow.dst, flow.port)].append(flow)
-    for (src, dst, port), items in groups.items():
+            groups[(flow.src, flow.dst, flow.port, flow.protocol)].append(flow)
+    for (src, dst, port, proto), items in groups.items():
         start, best, best_end = 0, 0, 0
         for end, flow in enumerate(items):
             while (flow.time - items[start].time).total_seconds() > window_seconds:
@@ -129,8 +133,8 @@ def repeated_denies(flows, min_denies=10, window_seconds=600):
                 best, best_end = end - start + 1, end
         if best >= min_denies:
             findings.append(Finding('repeated_denies', 'medium', src,
-                                    f'{src} was denied {best} times reaching {dst}:{port} within {window_seconds}s and kept retrying',
-                                    {'target': dst, 'port': port, 'denies_in_window': best,
+                                    f'{src} was denied {best} times reaching {dst}:{port}/{proto} within {window_seconds}s and kept retrying',
+                                    {'target': dst, 'port': port, 'protocol': proto, 'denies_in_window': best,
                                      'first_denied': items[best_end - best + 1].time.isoformat()}))
     return findings
 
