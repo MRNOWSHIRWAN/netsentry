@@ -22,13 +22,13 @@
 - **Suggested next step:** Check whether the source is an approved scanner. If not, block or rate-limit it and confirm which of the probed ports are actually exposed.
 - **Evidence:** target=192.0.2.5, protocol=tcp, distinct_ports=40, first_seen=2026-10-01T09:20:01+00:00
 
-## 3. [MEDIUM] 192.0.2.31 contacted 198.51.100.99:8443 10 times at a steady ~60s interval
+## 3. [MEDIUM] 192.0.2.31 contacted 198.51.100.99:8443/tcp 10 times at a steady ~60s interval
 
 - **What this is:** A host contacted the same destination at a near-constant interval.
 - **Why it matters:** Automated software that checks in with an outside server often behaves this way.
 - **Could be harmless if:** Update checks, monitoring agents and chat or sync apps are also regular.
 - **Suggested next step:** Identify the process behind the traffic and check the destination against what the host should be talking to.
-- **Evidence:** target=198.51.100.99, port=8443, events=10, interval_seconds=60.0
+- **Evidence:** target=198.51.100.99, port=8443, protocol=tcp, events=10, interval_seconds=60.0
 
 ## 4. [MEDIUM] FTP (port 21) on 192.0.2.8 was used by 1 source(s)
 
@@ -46,10 +46,10 @@
 - **Suggested next step:** Confirm the owner and purpose of the host, and compare with its normal backup or upload schedule.
 - **Evidence:** bytes_out=900171151, average_bytes=28319766
 
-## 6. [MEDIUM] 192.0.2.60 was denied 12 times reaching 198.51.100.77:4444 within 600s and kept retrying
+## 6. [MEDIUM] 192.0.2.60 was denied 12 times reaching 198.51.100.77:4444/tcp within 600s and kept retrying
 
 - **What this is:** One source was blocked from the same destination and port many times and kept retrying.
 - **Why it matters:** Software that retries a blocked connection can be malware trying to reach a command server or a blocked exfiltration path.
 - **Could be harmless if:** A misconfigured application, a stale DNS entry or a health check pointed at a closed port causes the same pattern.
 - **Suggested next step:** Identify the process behind the retries on the source host. If it is expected, fix the rule or the app configuration; if not, investigate the host.
-- **Evidence:** target=198.51.100.77, port=4444, denies_in_window=12, first_denied=2026-10-01T10:06:40+00:00
+- **Evidence:** target=198.51.100.77, port=4444, protocol=tcp, denies_in_window=12, first_denied=2026-10-01T10:06:40+00:00

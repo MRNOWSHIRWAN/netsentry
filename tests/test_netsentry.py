@@ -50,6 +50,14 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(len(detectors.beaconing(regular)), 1)
         self.assertEqual(detectors.beaconing(irregular), [])
 
+    def test_beaconing_counts_protocols_separately(self):
+        mixed = ([flow(i * 60, port=8443) for i in range(7)]
+                 + [flow(i * 60 + 30, port=8443, proto='udp') for i in range(7)])
+        self.assertEqual(detectors.beaconing(mixed), [])  # interleaved, not steady per protocol
+        found = detectors.beaconing(mixed + [flow(i * 60, src='192.0.2.5', port=8443) for i in range(9)])
+        self.assertEqual(len(found), 1)
+        self.assertEqual((found[0].evidence['protocol'], found[0].evidence['events']), ('tcp', 9))
+
     def test_cleartext_only_counts_allowed_traffic(self):
         self.assertEqual(len(detectors.cleartext_services([flow(0, port=23)])), 1)
         self.assertEqual(detectors.cleartext_services([flow(0, port=23, action='deny')]), [])
@@ -63,6 +71,11 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(found[0].evidence['denies_in_window'], 12)
         text = report.to_markdown(rows, 0, found)
         self.assertIn('Suggested next step', text)
+
+    def test_repeated_denies_counts_protocols_separately(self):
+        mixed = ([flow(i * 30, action='deny', port=443) for i in range(6)]
+                 + [flow(i * 30, action='deny', port=443, proto='udp') for i in range(6)])
+        self.assertEqual(detectors.repeated_denies(mixed), [])  # 6 tcp + 6 udp: neither side persists alone
 
     def test_repeated_denies_needs_volume_on_one_target_in_one_window(self):
         sparse = [flow(i * 120, action='deny', port=443) for i in range(12)]
