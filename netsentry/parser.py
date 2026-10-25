@@ -62,3 +62,9 @@ def load_flows(path):
                 skipped += 1
     flows.sort(key=lambda flow: flow.time)
     return flows, skipped
+
+
+def filter_by_time(flows, since=None, until=None):
+    """Keep flows at or after `since` and at or before `until` (datetimes)."""
+    return [flow for flow in flows
+            if (since is None or flow.time >= since) and (until is None or flow.time <= until)]

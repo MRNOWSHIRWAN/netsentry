@@ -4,7 +4,7 @@ import sys
 
 from . import __version__
 from .detectors import run_all
-from .parser import load_flows
+from .parser import filter_by_time, load_flows, parse_time
 from .report import to_json, to_markdown
 
 
@@ -15,10 +15,17 @@ def main(argv=None):
     parser.add_argument('--output', type=Path, help='write the report here instead of printing it')
     parser.add_argument('--fail-on', choices=('high', 'medium', 'low'),
                         help='exit with status 1 if a finding at this severity or above exists (for automation)')
+    parser.add_argument('--since', help='only flows at or after this ISO date/time (UTC if no offset), e.g. 2026-10-01T09:30')
+    parser.add_argument('--until', help='only flows at or before this ISO date/time')
     parser.add_argument('--version', action='version', version=__version__)
     args = parser.parse_args(argv)
     try:
         flows, skipped = load_flows(args.input)
+        since = parse_time(args.since) if args.since else None
+        until = parse_time(args.until) if args.until else None
+        if since is not None and until is not None and since > until:
+            raise ValueError('--since must not be after --until')
+        flows = filter_by_time(flows, since, until)
         findings = run_all(flows)
         text = (to_json if args.format == 'json' else to_markdown)(flows, skipped, findings)
         if args.output:
