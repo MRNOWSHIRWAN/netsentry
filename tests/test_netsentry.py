@@ -112,6 +112,12 @@ class ParserTests(unittest.TestCase):
             flows, skipped = parser.load_flows(path)
             self.assertEqual((len(flows), skipped), (1, 4))
 
+    def test_filter_by_time_keeps_the_requested_window(self):
+        rows = [flow(i * 3600) for i in range(10)]  # 09:00 through 18:00 UTC
+        kept = parser.filter_by_time(rows, parser.parse_time('2026-10-01T12:00'), parser.parse_time('2026-10-01T15:00'))
+        self.assertEqual([f.time.hour for f in kept], [12, 13, 14, 15])
+        self.assertEqual(parser.filter_by_time(rows), rows)
+
     def test_missing_columns_and_limits_are_rejected(self):
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaisesRegex(ValueError, 'missing columns'):
@@ -163,6 +169,16 @@ class EndToEndTests(unittest.TestCase):
 
     def test_empty_data_reports_no_findings_without_claiming_clean(self):
         self.assertIn('does not prove', report.to_markdown([], 0, []))
+
+    def test_cli_since_until_filters_and_validates(self):
+        with redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(cli.main([str(SAMPLE), '--since', '2026-10-02']), 0)  # after all sample data
+        self.assertIn('Flows analyzed: **0**', out.getvalue())
+        with redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(cli.main([str(SAMPLE), '--since', '2026-10-02', '--until', '2026-10-01']), 2)
+        self.assertIn('must not be after', err.getvalue())
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(cli.main([str(SAMPLE), '--since', 'not-a-date']), 2)
 
     def test_cli_exit_codes_and_output_protection(self):
         with tempfile.TemporaryDirectory() as folder:
