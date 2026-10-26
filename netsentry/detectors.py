@@ -25,18 +25,23 @@ def port_scans(flows, min_ports=15, window_seconds=60):
     for flow in flows:
         by_pair[(flow.src, flow.dst, flow.protocol)].append(flow)
     for (src, dst, proto), items in by_pair.items():
-        start, best, best_start = 0, 0, 0
+        start, best, best_start, best_end = 0, 0, 0, 0
         for end, flow in enumerate(items):
             while (flow.time - items[start].time).total_seconds() > window_seconds:
                 start += 1
             count = len({f.port for f in items[start:end + 1]})
             if count > best:
-                best, best_start = count, start
+                best, best_start, best_end = count, start, end
         if best >= min_ports:
+            ports = sorted({f.port for f in items[best_start:best_end + 1]})
+            # Name the ports so the next step ("which probed ports are exposed?") is answerable from the report.
+            evidence = {'target': dst, 'protocol': proto, 'distinct_ports': best,
+                        'first_seen': items[best_start].time.isoformat(), 'ports': ports[:50]}
+            if len(ports) > 50:
+                evidence['ports_truncated'] = True
             findings.append(Finding('port_scan', 'high', src,
                                     f'{src} probed {best} distinct {proto} ports on {dst} within {window_seconds}s',
-                                    {'target': dst, 'protocol': proto, 'distinct_ports': best,
-                                     'first_seen': items[best_start].time.isoformat()}))
+                                    evidence))
     return findings
 
 
