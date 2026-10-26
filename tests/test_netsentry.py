@@ -23,6 +23,12 @@ class DetectorTests(unittest.TestCase):
         found = detectors.port_scans([flow(i, port=i + 1) for i in range(40)])
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0].evidence['distinct_ports'], 40)
+        self.assertEqual(found[0].evidence['ports'], list(range(1, 41)))
+        self.assertNotIn('ports_truncated', found[0].evidence)
+
+    def test_port_scan_port_list_is_capped_for_huge_scans(self):
+        evidence = detectors.port_scans([flow(i, port=i + 1) for i in range(60)])[0].evidence
+        self.assertEqual((evidence['distinct_ports'], len(evidence['ports']), evidence['ports_truncated']), (60, 50, True))
 
     def test_port_scan_counts_tcp_and_udp_separately(self):
         mixed = [flow(i, port=i + 1) for i in range(8)] + [flow(i, port=i + 1, proto='udp') for i in range(8)]
