@@ -115,8 +115,9 @@ class ParserTests(unittest.TestCase):
                 '2026-10-01T09:00:01Z,192.0.2.1,192.0.2.2,99999,tcp,10,allow',
                 '2026-10-01T09:00:02Z,192.0.2.1,192.0.2.2,443,tcp,-5,allow',
                 '2026-10-01T09:00:03Z,192.0.2.1,192.0.2.2,443,tcp,10,hack'])
-            flows, skipped = parser.load_flows(path)
+            flows, skipped, reasons = parser.load_flows(path)
             self.assertEqual((len(flows), skipped), (1, 4))
+            self.assertEqual(reasons, {'bad IP address': 1, 'port or byte count out of range': 2, 'unknown action': 1})
 
     def test_filter_by_time_keeps_the_requested_window(self):
         rows = [flow(i * 3600) for i in range(10)]  # 09:00 through 18:00 UTC
@@ -142,8 +143,9 @@ class ParserTests(unittest.TestCase):
             path = Path(folder) / 'excel-export.csv'
             path.write_bytes(('\ufeffTimestamp, SRC_IP ,Dst_Ip,dst_port,Protocol,bytes_out,ACTION\n'
                               '2026-10-01T09:00:00Z,192.0.2.1,192.0.2.2,443,TCP,10,ALLOW\n').encode('utf-8'))
-            flows, skipped = parser.load_flows(path)
+            flows, skipped, reasons = parser.load_flows(path)
             self.assertEqual((len(flows), skipped), (1, 0))
+            self.assertEqual(reasons, {})
             self.assertEqual((flows[0].src, flows[0].protocol, flows[0].action), ('192.0.2.1', 'tcp', 'allow'))
 
     def test_naive_timestamps_are_treated_as_utc_and_sorted(self):
@@ -151,20 +153,29 @@ class ParserTests(unittest.TestCase):
             path = self.write(folder, [self.HEADER,
                 '2026-10-01T09:00:05,192.0.2.1,192.0.2.2,443,tcp,1,allow',
                 '2026-10-01T09:00:01,192.0.2.1,192.0.2.2,443,tcp,1,allow'])
-            flows, _ = parser.load_flows(path)
+            flows, _, _ = parser.load_flows(path)
             self.assertLess(flows[0].time, flows[1].time)
             self.assertEqual(flows[0].time.tzinfo, timezone.utc)
 
 
 class EndToEndTests(unittest.TestCase):
     def test_sample_data_produces_each_expected_finding(self):
-        flows, skipped = parser.load_flows(SAMPLE)
+        flows, skipped, _ = parser.load_flows(SAMPLE)
         kinds = sorted(f.kind for f in detectors.run_all(flows))
         self.assertEqual(kinds, ['auth_burst', 'beaconing', 'cleartext_service', 'large_transfer', 'port_scan', 'repeated_denies'])
         self.assertEqual(skipped, 0)
 
+    def test_skip_reasons_appear_in_both_report_formats(self):
+        rows = [flow(0), flow(1)]
+        reasons = {'bad IP address': 2, 'unknown action': 1}
+        text = report.to_markdown(rows, 3, [], reasons)
+        self.assertIn('rows skipped as invalid: 3 (bad IP address: 2, unknown action: 1)', text)
+        data = json.loads(report.to_json(rows, 3, [], reasons))
+        self.assertEqual(data['summary']['skip_reasons'], reasons)
+        self.assertNotIn('skip_reasons', json.loads(report.to_json(rows, 0, []))['summary'])
+
     def test_markdown_and_json_reports_explain_findings(self):
-        flows, skipped = parser.load_flows(SAMPLE)
+        flows, skipped, _ = parser.load_flows(SAMPLE)
         findings = detectors.run_all(flows)
         text = report.to_markdown(flows, skipped, findings)
         self.assertIn('Suggested next step', text)

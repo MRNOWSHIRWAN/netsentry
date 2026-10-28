@@ -1,5 +1,6 @@
 """Read flow records from CSV. Input is treated as untrusted: bad rows are counted, never fatal."""
 import csv
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import ipaddress
@@ -28,22 +29,42 @@ def parse_time(text):
 
 
 def parse_row(row):
-    src = str(ipaddress.ip_address(row['src_ip'].strip()))
-    dst = str(ipaddress.ip_address(row['dst_ip'].strip()))
-    port = int(row['dst_port'])
-    size = int(row['bytes_out'])
-    action = row['action'].strip().lower()
-    if not 0 <= port <= 65535 or size < 0 or action not in ACTIONS:
-        raise ValueError('field out of range')
-    return Flow(parse_time(row['timestamp']), src, dst, port, row['protocol'].strip().lower()[:8], size, action)
+    """Build a Flow or raise ValueError naming why the row was skipped."""
+    try:
+        src = str(ipaddress.ip_address(row['src_ip'].strip()))
+        dst = str(ipaddress.ip_address(row['dst_ip'].strip()))
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError('bad IP address') from exc
+    try:
+        port = int(row['dst_port'])
+        size = int(row['bytes_out'])
+    except (TypeError, ValueError) as exc:
+        raise ValueError('bad port or byte count') from exc
+    if not 0 <= port <= 65535 or size < 0:
+        raise ValueError('port or byte count out of range')
+    try:
+        action = row['action'].strip().lower()
+    except AttributeError as exc:
+        raise ValueError('unknown action') from exc
+    if action not in ACTIONS:
+        raise ValueError('unknown action')
+    try:
+        moment = parse_time(row['timestamp'])
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError('bad timestamp') from exc
+    try:
+        protocol = row['protocol'].strip().lower()[:8]
+    except AttributeError as exc:
+        raise ValueError('bad protocol') from exc
+    return Flow(moment, src, dst, port, protocol, size, action)
 
 
 def load_flows(path):
-    """Return (flows sorted by time, number of skipped rows). Raises ValueError for unusable files."""
+    """Return (flows sorted by time, skipped row count, skip reasons). Raises ValueError for unusable files."""
     path = Path(path)
     if path.stat().st_size > MAX_BYTES:
         raise ValueError(f'input exceeds {MAX_BYTES // 1_000_000} MB; split it first')
-    flows, skipped = [], 0
+    flows, skipped, reasons = [], 0, Counter()
     with path.open(newline='', encoding='utf-8-sig') as stream:
         reader = csv.DictReader(stream)
         # Real exports add a BOM or vary header case/spacing; map cleaned names to the original ones.
@@ -58,10 +79,11 @@ def load_flows(path):
                 raise ValueError(f'input exceeds {MAX_ROWS} rows; split it first')
             try:
                 flows.append(parse_row({key: row[names[key]] for key in REQUIRED}))
-            except (ValueError, KeyError, AttributeError, TypeError):
+            except ValueError as exc:
                 skipped += 1
+                reasons[str(exc)] += 1
     flows.sort(key=lambda flow: flow.time)
-    return flows, skipped
+    return flows, skipped, dict(reasons)
 
 
 def filter_by_time(flows, since=None, until=None):
