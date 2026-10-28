@@ -20,19 +20,20 @@ def main(argv=None):
     parser.add_argument('--version', action='version', version=__version__)
     args = parser.parse_args(argv)
     try:
-        flows, skipped = load_flows(args.input)
+        flows, skipped, reasons = load_flows(args.input)
         since = parse_time(args.since) if args.since else None
         until = parse_time(args.until) if args.until else None
         if since is not None and until is not None and since > until:
             raise ValueError('--since must not be after --until')
         flows = filter_by_time(flows, since, until)
         findings = run_all(flows)
-        text = (to_json if args.format == 'json' else to_markdown)(flows, skipped, findings)
+        text = (to_json if args.format == 'json' else to_markdown)(flows, skipped, findings, reasons)
         if args.output:
             if args.output.resolve() == args.input.resolve():
                 raise ValueError('output must differ from the input file')
             args.output.write_text(text + '\n', encoding='utf-8')
-            print(f'Report saved to {args.output}: {len(findings)} finding(s), {skipped} row(s) skipped.')
+            detail = ' (' + ', '.join(f'{r}: {c}' for r, c in sorted(reasons.items())) + ')' if reasons else ''
+            print(f'Report saved to {args.output}: {len(findings)} finding(s), {skipped} row(s) skipped{detail}.')
         else:
             print(text)
     except (OSError, ValueError, UnicodeDecodeError) as exc:
