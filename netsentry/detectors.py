@@ -143,8 +143,32 @@ def repeated_denies(flows, min_denies=10, window_seconds=600):
                                      'first_denied': items[best_end - best + 1].time.isoformat()}))
     return findings
 
+
+def admin_exposure(flows, min_sources=3):
+    """Remote-admin services (SSH, RDP, SMB, VNC) allowed from many distinct sources.
+
+    Admin consoles are normally used by a small, known set of hosts, so a wide
+    fan-in suggests the service is exposed more broadly than intended."""
+    seen = defaultdict(set)
+    for flow in flows:
+        if flow.action == 'allow' and flow.port in RISKY_ADMIN_PORTS:
+            seen[(flow.dst, flow.port, flow.protocol)].add(flow.src)
+    findings = []
+    for (dst, port, proto), sources in sorted(seen.items()):
+        if len(sources) < min_sources:
+            continue
+        evidence = {'port': port, 'protocol': proto, 'distinct_sources': len(sources),
+                    'sources': sorted(sources)[:10]}
+        if len(sources) > 10:
+            evidence['sources_truncated'] = True
+        findings.append(Finding('admin_exposure', 'medium', dst,
+                                f'{RISKY_ADMIN_PORTS[port]} (port {port}/{proto}) on {dst} was allowed from {len(sources)} distinct sources',
+                                evidence))
+    return findings
+
+
 def run_all(flows):
     order = {'high': 0, 'medium': 1, 'low': 2}
     findings = (port_scans(flows) + auth_bursts(flows) + large_transfers(flows) + beaconing(flows)
-              + cleartext_services(flows) + repeated_denies(flows))
+              + cleartext_services(flows) + repeated_denies(flows) + admin_exposure(flows))
     return sorted(findings, key=lambda f: (order[f.severity], f.kind, f.source))

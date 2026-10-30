@@ -99,6 +99,37 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(detectors.large_transfers(rows[:2]), [])
 
 
+    def test_admin_exposure_flags_many_distinct_sources(self):
+        flows = [flow(s, src=f'192.0.2.{n}', dst='192.0.2.9', port=22) for s, n in enumerate((1, 2, 3))]
+        finding = detectors.admin_exposure(flows)[0]
+        self.assertEqual(finding.kind, 'admin_exposure')
+        self.assertEqual(finding.severity, 'medium')
+        self.assertEqual(finding.evidence['distinct_sources'], 3)
+
+    def test_admin_exposure_needs_several_distinct_sources(self):
+        flows = [flow(s, src=f'192.0.2.{n}', port=22) for s, n in enumerate((1, 2))]
+        flows += [flow(s + 2, src='192.0.2.1', port=443) for s in range(3)]
+        self.assertEqual(detectors.admin_exposure(flows), [])
+
+    def test_admin_exposure_counts_only_allowed_traffic(self):
+        flows = [flow(s, src=f'192.0.2.{n}', port=3389, action='deny') for s, n in enumerate((1, 2, 3))]
+        self.assertEqual(detectors.admin_exposure(flows), [])
+
+    def test_admin_exposure_counts_protocols_separately(self):
+        flows = [flow(s, src=f'192.0.2.{n}', port=445) for s, n in enumerate((1, 2, 3))]
+        flows += [flow(s + 10, src=f'192.0.2.{n}', port=445, proto='udp') for s, n in enumerate((4, 5, 6))]
+        protocols = sorted(f.evidence['protocol'] for f in detectors.admin_exposure(flows))
+        self.assertEqual(protocols, ['tcp', 'udp'])
+
+    def test_admin_exposure_is_explained_in_reports(self):
+        flows = [flow(s, src=f'192.0.2.{n}', dst='192.0.2.9', port=5900) for s, n in enumerate((1, 2, 3))]
+        findings = detectors.run_all(flows)
+        self.assertEqual([f.kind for f in findings], ['admin_exposure'])
+        text = report.to_markdown(flows, 0, findings)
+        self.assertIn('remote-administration service', text)
+        self.assertIn('Suggested next step', text)
+
+
 class ParserTests(unittest.TestCase):
     def write(self, folder, lines):
         path = Path(folder) / 'f.csv'
