@@ -12,7 +12,7 @@
 - **Why it matters:** Repeated failures suggest password guessing; a success after them may mean an account is compromised.
 - **Could be harmless if:** A user with an expired password or a broken script can cause the same pattern.
 - **Suggested next step:** Review the account that succeeded, force a password reset if unexplained, and enable lockout or MFA on that service.
-- **Evidence:** failures_in_window=12, success_followed=True, targets=['192.0.2.5']
+- **Evidence:** failures_in_window=12, success_followed=True, first_seen=2026-10-01T09:33:20+00:00, last_seen=2026-10-01T09:34:48+00:00, targets=['192.0.2.5']
 
 ## 2. [HIGH] 203.0.113.50 probed 40 distinct tcp ports on 192.0.2.5 within 60s
 
@@ -36,7 +36,7 @@
 - **Why it matters:** Automated software that checks in with an outside server often behaves this way.
 - **Could be harmless if:** Update checks, monitoring agents and chat or sync apps are also regular.
 - **Suggested next step:** Identify the process behind the traffic and check the destination against what the host should be talking to.
-- **Evidence:** target=198.51.100.99, port=8443, protocol=tcp, events=10, interval_seconds=60.0
+- **Evidence:** target=198.51.100.99, port=8443, protocol=tcp, events=10, interval_seconds=60.0, first_seen=2026-10-01T09:50:00+00:00, last_seen=2026-10-01T09:59:00+00:00
 
 ## 5. [MEDIUM] FTP (port 21) on 192.0.2.8 was used by 1 source(s)
 
