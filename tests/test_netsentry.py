@@ -46,6 +46,12 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(detectors.auth_bursts(fails + [flow(20, action='auth_ok', port=22)])[0].severity, 'high')
         self.assertEqual(detectors.auth_bursts(fails[:5]), [])
 
+    def test_auth_burst_evidence_stamps_the_window(self):
+        fails = [flow(i, action='auth_fail', port=22) for i in range(10)]
+        evidence = detectors.auth_bursts(fails)[0].evidence
+        self.assertEqual(evidence['first_seen'], T0.isoformat())
+        self.assertEqual(evidence['last_seen'], (T0 + timedelta(seconds=9)).isoformat())
+
     def test_success_before_the_failures_does_not_escalate(self):
         rows = [flow(0, action='auth_ok', port=22)] + [flow(10 + i, action='auth_fail', port=22) for i in range(10)]
         self.assertEqual(detectors.auth_bursts(rows)[0].severity, 'medium')
@@ -55,6 +61,12 @@ class DetectorTests(unittest.TestCase):
         irregular = [flow(t, port=8443) for t in (0, 7, 100, 130, 400, 410, 900, 1500, 1520, 3000)]
         self.assertEqual(len(detectors.beaconing(regular)), 1)
         self.assertEqual(detectors.beaconing(irregular), [])
+
+    def test_beaconing_evidence_stamps_first_and_last_contact(self):
+        regular = [flow(i * 60, port=8443) for i in range(10)]
+        evidence = detectors.beaconing(regular)[0].evidence
+        self.assertEqual(evidence['first_seen'], T0.isoformat())
+        self.assertEqual(evidence['last_seen'], (T0 + timedelta(seconds=540)).isoformat())
 
     def test_beaconing_counts_protocols_separately(self):
         mixed = ([flow(i * 60, port=8443) for i in range(7)]
