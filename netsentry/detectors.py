@@ -1,5 +1,6 @@
 """Heuristic detectors. Each returns Finding objects; thresholds are parameters, not secrets."""
 from collections import defaultdict
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from statistics import mean, pstdev
 
@@ -62,11 +63,15 @@ def auth_bursts(flows, min_failures=8, window_seconds=300):
         if best >= min_failures:
             window_end = fails[best_end].time
             success = any(f.action == 'auth_ok' and f.time >= window_end for f in items)
+            # Stamp the burst window so the report answers "when did this happen?" for the timeline.
+            evidence = {'failures_in_window': best, 'success_followed': success,
+                        'first_seen': fails[best_start].time.isoformat(),
+                        'last_seen': fails[best_end].time.isoformat(),
+                        'targets': sorted({f.dst for f in fails[best_start:best_end + 1]})}
             findings.append(Finding('auth_burst', 'high' if success else 'medium', src,
                                     f'{src} had {best} failed logins in {window_seconds}s' +
                                     (' and then a successful login' if success else ''),
-                                    {'failures_in_window': best, 'success_followed': success,
-                                     'targets': sorted({f.dst for f in fails[best_start:best_end + 1]})}))
+                                    evidence))
     return findings
 
 
@@ -115,10 +120,14 @@ def beaconing(flows, min_events=8, max_jitter=0.1):
         gaps = [b - a for a, b in zip(times, times[1:])]
         gap_avg = mean(gaps)
         if gap_avg >= 5 and pstdev(gaps) / gap_avg <= max_jitter:
+            # Stamp the first and last contact so the steady rhythm can be placed on a timeline.
+            evidence = {'target': dst, 'port': port, 'protocol': proto,
+                        'events': len(times), 'interval_seconds': round(gap_avg, 1),
+                        'first_seen': datetime.fromtimestamp(times[0], timezone.utc).isoformat(),
+                        'last_seen': datetime.fromtimestamp(times[-1], timezone.utc).isoformat()}
             findings.append(Finding('beaconing', 'medium', src,
                                     f'{src} contacted {dst}:{port}/{proto} {len(times)} times at a steady ~{gap_avg:.0f}s interval',
-                                    {'target': dst, 'port': port, 'protocol': proto,
-                                     'events': len(times), 'interval_seconds': round(gap_avg, 1)}))
+                                    evidence))
     return findings
 
 
