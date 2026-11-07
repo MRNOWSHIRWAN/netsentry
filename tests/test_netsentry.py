@@ -230,6 +230,27 @@ class EndToEndTests(unittest.TestCase):
     def test_empty_data_reports_no_findings_without_claiming_clean(self):
         self.assertIn('does not prove', report.to_markdown([], 0, []))
 
+    def test_report_notes_the_applied_time_window(self):
+        rows = [flow(0), flow(60)]
+        both = (T0, T0 + timedelta(hours=1))
+        text = report.to_markdown(rows, 0, [], window=both)
+        self.assertIn(f'- Window applied: only flows from {T0.isoformat()}; until {(T0 + timedelta(hours=1)).isoformat()}', text)
+        data = json.loads(report.to_json(rows, 0, [], window=both))
+        self.assertEqual(data['summary']['window'], f'from {T0.isoformat()}; until {(T0 + timedelta(hours=1)).isoformat()}')
+        only_since = report.to_markdown(rows, 0, [], window=(T0, None))
+        self.assertIn(f'only flows from {T0.isoformat()}', only_since)
+        self.assertNotIn('until', only_since)
+        self.assertNotIn('Window applied', report.to_markdown(rows, 0, []))
+        self.assertNotIn('window', json.loads(report.to_json(rows, 0, []))['summary'])
+
+    def test_cli_report_marks_the_filtered_window(self):
+        with redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(cli.main([str(SAMPLE), '--since', '2026-10-01', '--format', 'json']), 0)
+        self.assertIn('from 2026-10-01T00:00:00+00:00', json.loads(out.getvalue())['summary']['window'])
+        with redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(cli.main([str(SAMPLE)]), 0)
+        self.assertNotIn('Window applied', out.getvalue())
+
     def test_cli_since_until_filters_and_validates(self):
         with redirect_stdout(io.StringIO()) as out:
             self.assertEqual(cli.main([str(SAMPLE), '--since', '2026-10-02']), 0)  # after all sample data

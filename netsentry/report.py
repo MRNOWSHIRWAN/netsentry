@@ -8,28 +8,40 @@ NOTE = ('Heuristic findings from the supplied data only. They are leads to verif
         'or of who is responsible. Use only data you are authorized to analyze.')
 
 
-def summary(flows, skipped, findings, reasons=None):
+def window_text(window):
+    since, until = window
+    parts = ([f'from {since.isoformat()}'] if since else []) + ([f'until {until.isoformat()}'] if until else [])
+    return '; '.join(parts)
+
+
+def summary(flows, skipped, findings, reasons=None, window=None):
     info = {'flows_analyzed': len(flows), 'rows_skipped': skipped,
             'time_range': [flows[0].time.isoformat(), flows[-1].time.isoformat()] if flows else None,
             'findings_by_severity': dict(Counter(f.severity for f in findings))}
     if reasons:
         info['skip_reasons'] = dict(reasons)
+    if window and (window[0] or window[1]):
+        info['window'] = window_text(window)
     return info
 
 
-def to_json(flows, skipped, findings, reasons=None):
-    return json.dumps({'note': NOTE, 'summary': summary(flows, skipped, findings, reasons),
+def to_json(flows, skipped, findings, reasons=None, window=None):
+    return json.dumps({'note': NOTE, 'summary': summary(flows, skipped, findings, reasons, window),
                        'findings': [{**vars(f), 'explanation': explain(f.kind)} for f in findings]}, indent=2)
 
 
-def to_markdown(flows, skipped, findings, reasons=None):
-    info = summary(flows, skipped, findings)
+def to_markdown(flows, skipped, findings, reasons=None, window=None):
+    info = summary(flows, skipped, findings, reasons, window)
     skipped_text = str(skipped)
     if reasons:
         skipped_text += ' (' + ', '.join(f'{reason}: {count}' for reason, count in sorted(reasons.items())) + ')'
     lines = ['# NetSentry report', '', f'> {NOTE}', '',
              f"- Flows analyzed: **{info['flows_analyzed']}** (rows skipped as invalid: {skipped_text})",
              f"- Time range (UTC): {' to '.join(info['time_range']) if info['time_range'] else 'none'}",
+             ]
+    if 'window' in info:
+        lines.append(f"- Window applied: only flows {info['window']}")
+    lines += [
              '- Findings: ' + (', '.join(f'{n} {sev}' for sev, n in info['findings_by_severity'].items()) or 'none'), '']
     if not findings:
         lines.append('No suspicious patterns matched the current thresholds. That does not prove the data is clean.')

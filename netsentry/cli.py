@@ -27,7 +27,8 @@ def main(argv=None):
             raise ValueError('--since must not be after --until')
         flows = filter_by_time(flows, since, until)
         findings = run_all(flows)
-        text = (to_json if args.format == 'json' else to_markdown)(flows, skipped, findings, reasons)
+        window = (since, until) if (since or until) else None
+        text = (to_json if args.format == 'json' else to_markdown)(flows, skipped, findings, reasons, window)
         if args.output:
             if args.output.resolve() == args.input.resolve():
                 raise ValueError('output must differ from the input file')
