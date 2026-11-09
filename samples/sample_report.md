@@ -20,7 +20,7 @@
 - **Why it matters:** Scanning is often the first step before targeting a weak service.
 - **Could be harmless if:** Authorized vulnerability scanners, monitoring tools and misconfigured clients look the same.
 - **Suggested next step:** Check whether the source is an approved scanner. If not, block or rate-limit it and confirm which of the probed ports are actually exposed.
-- **Evidence:** target=192.0.2.5, protocol=tcp, distinct_ports=40, first_seen=2026-10-01T09:20:01+00:00, ports=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
+- **Evidence:** target=192.0.2.5, protocol=tcp, distinct_ports=40, first_seen=2026-10-01T09:20:01+00:00, last_seen=2026-10-01T09:20:40+00:00, ports=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
 
 ## 3. [MEDIUM] RDP (port 3389/tcp) on 192.0.2.70 was allowed from 4 distinct sources
 
@@ -60,4 +60,4 @@
 - **Why it matters:** Software that retries a blocked connection can be malware trying to reach a command server or a blocked exfiltration path.
 - **Could be harmless if:** A misconfigured application, a stale DNS entry or a health check pointed at a closed port causes the same pattern.
 - **Suggested next step:** Identify the process behind the retries on the source host. If it is expected, fix the rule or the app configuration; if not, investigate the host.
-- **Evidence:** target=198.51.100.77, port=4444, protocol=tcp, denies_in_window=12, first_denied=2026-10-01T10:06:40+00:00
+- **Evidence:** target=198.51.100.77, port=4444, protocol=tcp, denies_in_window=12, first_denied=2026-10-01T10:06:40+00:00, last_denied=2026-10-01T10:12:10+00:00

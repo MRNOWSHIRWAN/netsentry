@@ -37,7 +37,8 @@ def port_scans(flows, min_ports=15, window_seconds=60):
             ports = sorted({f.port for f in items[best_start:best_end + 1]})
             # Name the ports so the next step ("which probed ports are exposed?") is answerable from the report.
             evidence = {'target': dst, 'protocol': proto, 'distinct_ports': best,
-                        'first_seen': items[best_start].time.isoformat(), 'ports': ports[:50]}
+                        'first_seen': items[best_start].time.isoformat(),
+                        'last_seen': items[best_end].time.isoformat(), 'ports': ports[:50]}
             if len(ports) > 50:
                 evidence['ports_truncated'] = True
             findings.append(Finding('port_scan', 'high', src,
@@ -149,7 +150,8 @@ def repeated_denies(flows, min_denies=10, window_seconds=600):
             findings.append(Finding('repeated_denies', 'medium', src,
                                     f'{src} was denied {best} times reaching {dst}:{port}/{proto} within {window_seconds}s and kept retrying',
                                     {'target': dst, 'port': port, 'protocol': proto, 'denies_in_window': best,
-                                     'first_denied': items[best_end - best + 1].time.isoformat()}))
+                                     'first_denied': items[best_end - best + 1].time.isoformat(),
+                                     'last_denied': items[best_end].time.isoformat()}))
     return findings
 
 
