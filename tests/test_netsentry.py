@@ -80,6 +80,17 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(len(detectors.cleartext_services([flow(0, port=23)])), 1)
         self.assertEqual(detectors.cleartext_services([flow(0, port=23, action='deny')]), [])
 
+    def test_port_scan_evidence_stamps_first_and_last_touch(self):
+        found = detectors.port_scans([flow(i, port=i + 1) for i in range(40)])
+        self.assertEqual(found[0].evidence['first_seen'], T0.isoformat())
+        self.assertEqual(found[0].evidence['last_seen'], (T0 + timedelta(seconds=39)).isoformat())
+
+    def test_repeated_denies_evidence_stamps_first_and_last(self):
+        rows = [flow(i * 30, action='deny', port=443) for i in range(12)]
+        evidence = detectors.repeated_denies(rows)[0].evidence
+        self.assertEqual(evidence['first_denied'], T0.isoformat())
+        self.assertEqual(evidence['last_denied'], (T0 + timedelta(seconds=330)).isoformat())
+
     def test_repeated_denies_flag_persistent_retries(self):
         rows = [flow(i * 30, action='deny', port=443) for i in range(12)]
         found = detectors.repeated_denies(rows)
