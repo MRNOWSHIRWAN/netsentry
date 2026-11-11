@@ -144,6 +144,14 @@ class DetectorTests(unittest.TestCase):
         protocols = sorted(f.evidence['protocol'] for f in detectors.admin_exposure(flows))
         self.assertEqual(protocols, ['tcp', 'udp'])
 
+    def test_cleartext_marks_a_truncated_source_list(self):
+        many = [flow(s, src=f'192.0.2.{n}', dst='192.0.2.9', port=23) for s, n in enumerate(range(1, 13))]
+        evidence = detectors.cleartext_services(many)[0].evidence
+        self.assertEqual(len(evidence['sources']), 10)
+        self.assertTrue(evidence['sources_truncated'])
+        few = [flow(s, src=f'192.0.2.{n}', dst='192.0.2.9', port=23) for s, n in enumerate((1, 2))]
+        self.assertNotIn('sources_truncated', detectors.cleartext_services(few)[0].evidence)
+
     def test_admin_exposure_is_explained_in_reports(self):
         flows = [flow(s, src=f'192.0.2.{n}', dst='192.0.2.9', port=5900) for s, n in enumerate((1, 2, 3))]
         findings = detectors.run_all(flows)
