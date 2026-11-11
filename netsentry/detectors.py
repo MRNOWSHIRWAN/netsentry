@@ -82,10 +82,15 @@ def cleartext_services(flows):
     for flow in flows:
         if flow.action == 'allow' and flow.port in CLEARTEXT_PORTS:
             seen[(flow.dst, flow.port)][flow.src] += 1
-    return [Finding('cleartext_service', 'low' if port == 80 else 'medium', dst,
-                    f'{CLEARTEXT_PORTS[port]} (port {port}) on {dst} was used by {len(sources)} source(s)',
-                    {'port': port, 'sources': sorted(sources)[:10]})
-            for (dst, port), sources in sorted(seen.items())]
+    findings = []
+    for (dst, port), sources in sorted(seen.items()):
+        evidence = {'port': port, 'sources': sorted(sources)[:10]}
+        if len(sources) > 10:
+            evidence['sources_truncated'] = True
+        findings.append(Finding('cleartext_service', 'low' if port == 80 else 'medium', dst,
+                                f'{CLEARTEXT_PORTS[port]} (port {port}) on {dst} was used by {len(sources)} source(s)',
+                                evidence))
+    return findings
 
 
 def large_transfers(flows, z_cutoff=3.0, min_bytes=10_000_000):
