@@ -4,6 +4,8 @@ import json
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -221,6 +223,13 @@ class ParserTests(unittest.TestCase):
 
 
 class EndToEndTests(unittest.TestCase):
+    def test_sample_csv_matches_its_generator(self):
+        # The sample visitors download must stay byte-identical to make_sample.py output.
+        script = SAMPLE.parent / 'make_sample.py'
+        result = subprocess.run([sys.executable, str(script)], capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8', errors='replace'))
+        self.assertEqual(result.stdout, SAMPLE.read_bytes())
+
     def test_sample_data_produces_each_expected_finding(self):
         flows, skipped, _ = parser.load_flows(SAMPLE)
         kinds = sorted(f.kind for f in detectors.run_all(flows))
