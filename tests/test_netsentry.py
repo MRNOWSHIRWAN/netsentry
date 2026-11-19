@@ -245,6 +245,17 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(data['summary']['skip_reasons'], reasons)
         self.assertNotIn('skip_reasons', json.loads(report.to_json(rows, 0, []))['summary'])
 
+    def test_markdown_folds_truncation_flags_into_a_note(self):
+        many = [flow(s, src=f'192.0.2.{n}', dst='192.0.2.9', port=23) for s, n in enumerate(range(1, 13))]
+        text = report.to_markdown(many, 0, detectors.cleartext_services(many))
+        self.assertIn('(capped at 10)', text)
+        self.assertNotIn('sources_truncated', text)
+        # JSON keeps the machine-readable flag; only the Markdown rendering folds it.
+        data = json.loads(report.to_json(many, 0, detectors.cleartext_services(many)))
+        self.assertTrue(data['findings'][0]['evidence']['sources_truncated'])
+        few = [flow(s, src=f'192.0.2.{n}', dst='192.0.2.9', port=23) for s, n in enumerate((1, 2))]
+        self.assertNotIn('capped', report.to_markdown(few, 0, detectors.cleartext_services(few)))
+
     def test_markdown_and_json_reports_explain_findings(self):
         flows, skipped, _ = parser.load_flows(SAMPLE)
         findings = detectors.run_all(flows)
