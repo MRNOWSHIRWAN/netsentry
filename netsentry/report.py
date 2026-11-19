@@ -30,6 +30,19 @@ def to_json(flows, skipped, findings, reasons=None, window=None):
                        'findings': [{**vars(f), 'explanation': explain(f.kind)} for f in findings]}, indent=2)
 
 
+def evidence_text(evidence):
+    """Render evidence for Markdown: fold raw *_truncated flags into a readable note."""
+    parts = []
+    for key, value in evidence.items():
+        if key.endswith('_truncated'):
+            continue  # the flag is folded into its list below; never show raw True/False
+        if isinstance(value, list) and evidence.get(f'{key}_truncated'):
+            parts.append(f'{key}={value} (capped at {len(value)})')
+        else:
+            parts.append(f'{key}={value}')
+    return ', '.join(parts)
+
+
 def to_markdown(flows, skipped, findings, reasons=None, window=None):
     info = summary(flows, skipped, findings, reasons, window)
     skipped_text = str(skipped)
@@ -51,5 +64,5 @@ def to_markdown(flows, skipped, findings, reasons=None, window=None):
                   f'- **What this is:** {why["what"]}', f'- **Why it matters:** {why["why_it_matters"]}',
                   f'- **Could be harmless if:** {why["possible_benign_causes"]}',
                   f'- **Suggested next step:** {why["suggested_next_step"]}',
-                  '- **Evidence:** ' + ', '.join(f'{k}={v}' for k, v in finding.evidence.items()), '']
+                  '- **Evidence:** ' + evidence_text(finding.evidence), '']
     return '\n'.join(lines)
